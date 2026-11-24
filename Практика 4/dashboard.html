@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ИАС БИ — Дашборд</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin: 10px 0;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .critical { border-left: 5px solid #d32f2f; }
+        .high { border-left: 5px solid #f57c00; }
+        .medium { border-left: 5px solid #fbc02d; }
+        .low { border-left: 5px solid #388e3c; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .risk-badge { padding: 4px 8px; border-radius: 4px; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🛡️ ИАС БИ — Информационно-аналитическая система безопасности</h1>
+    
+    <div class="card">
+        <h2>Запустить сканирование</h2>
+        <input type="text" id="target" placeholder="192.168.1.1" value="127.0.0.1">
+        <button onclick="runScan()">Сканировать</button>
+        <span id="status"></span>
+    </div>
+    
+    <div class="card">
+        <h2>Инциденты</h2>
+        <div id="incidents"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Распределение по серьёзности</h2>
+        <canvas id="severityChart" width="400" height="200"></canvas>
+    </div>
+
+    <script>
+        let severityData = { critical: 0, high: 0, medium: 0, low: 0 };
+
+        async function runScan() {
+            const target = document.getElementById('target').value;
+            document.getElementById('status').innerText = '⏳ Сканирование...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target })
+                });
+                const incident = await response.json();
+                renderIncident(incident);
+                document.getElementById('status').innerText = '✅ Готово';
+            } catch (e) {
+                document.getElementById('status').innerText = '❌ Ошибка: ' + e.message;
+            }
+        }
+
+        function renderIncident(incident) {
+            const div = document.getElementById('incidents');
+            const severity = incident.detected ? 'critical' : 'low';
+            
+            let html = `<div class="card ${severity}">`;
+            html += `<h3>Цель: ${incident.category || 'N/A'}</h3>`;
+            html += `<p>Обнаружен инцидент: <b>${incident.detected ? 'ДА' : 'НЕТ'}</b></p>`;
+            html += `<p>Оценка риска: <b>${incident.risk_score}</b></p>`;
+            
+            if (incident.findings && incident.findings.length > 0) {
+                html += '<table><tr><th>Источник</th><th>Тип</th><th>Порт</th><th>Серьёзность</th><th>Описание</th></tr>';
+                for (const f of incident.findings) {
+                    html += `<tr>
+                        <td>${f.source}</td>
+                        <td>${f.type}</td>
+                        <td>${f.port || '-'}</td>
+                        <td><span class="risk-badge" style="background:${getColor(f.severity)}">${f.severity}</span></td>
+                        <td>${f.description}</td>
+                    </tr>`;
+                    if (severityData[f.severity] !== undefined) severityData[f.severity]++;
+                }
+                html += '</table>';
+            }
+            
+            if (incident.recommendations && incident.recommendations.length > 0) {
+                html += '<h4>Рекомендации:</h4><ul>';
+                for (const r of incident.recommendations) html += `<li>${r}</li>`;
+                html += '</ul>';
+            }
+            
+            html += '</div>';
+            div.innerHTML = html;
+            updateChart();
+        }
+
+        function getColor(severity) {
+            const colors = { critical: '#d32f2f', high: '#f57c00', medium: '#fbc02d', low: '#388e3c' };
+            return colors[severity] || '#757575';
+        }
+
+        let chart;
+        function updateChart() {
+            const ctx = document.getElementById('severityChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Critical', 'High', 'Medium', 'Low'],
+                    datasets: [{
+                        label: 'Количество находок',
+                        data: [severityData.critical, severityData.high, severityData.medium, severityData.low],
+                        backgroundColor: ['#d32f2f', '#f57c00', '#fbc02d', '#388e3c']
+                    }]
+                },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+    </script>
+</body>
+</html>

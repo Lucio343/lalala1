@@ -1,0 +1,23 @@
+{
+  "scan_id": "uuid",
+  "timestamp": "2026-09-12T10:00:00Z",
+  "target": "192.168.1.1",
+  "findings": [
+    {
+      "source": "nmap|masscan|nikto",
+      "type": "port|service|vulnerability",
+      "severity": "critical|high|medium|low|info",
+      "port": 22,
+      "service": "ssh",
+      "description": "...",
+      "cwe": "CWE-XXX",
+      "cve": "CVE-XXXX-XXXX"
+    }
+  ],
+  "incident": {
+    "detected": true,
+    "risk_score": 8.5,
+    "category": "unauthorized_access",
+    "recommendations": ["..."]
+  }
+}
